@@ -1,0 +1,30 @@
+{
+  "name": "crossmint-stellar-wallets-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@crossmint/client-sdk-react-ui": "^4.2.11",
+    "@tanstack/react-query": "^5.66.0",
+    "clsx": "^2.1.1",
+    "firebase": "^11.3.0",
+    "firebase-admin": "^13.0.0",
+    "next": "^15.3.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
