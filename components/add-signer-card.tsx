@@ -61,7 +61,7 @@ export function AddSignerCard({ disabled }: { disabled?: boolean }) {
             <div key={signer.locator} className="flex items-center justify-between gap-3">
               <code className="break-all font-mono">{signer.locator}</code>
               <span className="shrink-0 text-muted-foreground">
-                {"status" in signer ? signer.status : "active"}
+                {"status" in signer ? signer.status : "-"}
               </span>
             </div>
           ))}
