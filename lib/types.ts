@@ -4,6 +4,15 @@ export interface DevicePublicKey {
   y: string;
 }
 
+/** Result from registering an operational email signer server-side. */
+export interface EmailSignerRegistration {
+  locator: string;
+  address: string;
+  /** Absent when the signer was already registered and needs no approval. */
+  transactionId?: string;
+  status?: string;
+}
+
 /** Response from POST /api/auth/signup. */
 export interface SignUpResponse {
   userId: string;

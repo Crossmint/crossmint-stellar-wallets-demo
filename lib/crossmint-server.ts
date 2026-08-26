@@ -6,7 +6,12 @@
  * The web client only carries the public client key and cannot create wallets
  * or transactions directly; it goes through these endpoints.
  */
-import type { CrossmintWallet, DevicePublicKey, TransferResponse } from "./types";
+import type {
+  CrossmintWallet,
+  DevicePublicKey,
+  EmailSignerRegistration,
+  TransferResponse,
+} from "./types";
 
 const CROSSMINT_API_URL =
   process.env.CROSSMINT_API_URL ?? "https://staging.crossmint.com/api/2025-06-09";
@@ -29,7 +34,9 @@ function stellarWalletLocator(userId: string): string {
 
 interface CreateWalletConfig {
   adminSigner: { type: "email"; email: string };
-  delegatedSigners?: Array<{ signer: { type: "device"; publicKey: DevicePublicKey } }>;
+  delegatedSigners?: Array<{
+    signer: { type: "device"; publicKey: DevicePublicKey } | { type: "email"; email: string };
+  }>;
 }
 
 /**
@@ -42,7 +49,7 @@ interface CreateWalletConfig {
 export async function getOrCreateWallet(
   userId: string,
   email: string,
-  devicePublicKey?: DevicePublicKey
+  options?: { devicePublicKey?: DevicePublicKey; operationalEmail?: string }
 ): Promise<CrossmintWallet> {
   const getRes = await fetch(`${CROSSMINT_API_URL}/wallets/${stellarWalletLocator(userId)}`, {
     headers: { "X-API-KEY": apiKey },
@@ -58,8 +65,15 @@ export async function getOrCreateWallet(
   const config: CreateWalletConfig = {
     adminSigner: { type: "email", email },
   };
-  if (devicePublicKey) {
-    config.delegatedSigners = [{ signer: { type: "device", publicKey: devicePublicKey } }];
+  const delegatedSigners: NonNullable<CreateWalletConfig["delegatedSigners"]> = [];
+  if (options?.devicePublicKey != null) {
+    delegatedSigners.push({ signer: { type: "device", publicKey: options.devicePublicKey } });
+  }
+  if (options?.operationalEmail != null) {
+    delegatedSigners.push({ signer: { type: "email", email: options.operationalEmail } });
+  }
+  if (delegatedSigners.length > 0) {
+    config.delegatedSigners = delegatedSigners;
   }
 
   const res = await fetch(`${CROSSMINT_API_URL}/wallets`, {
@@ -77,6 +91,38 @@ export async function getOrCreateWallet(
     throw new Error(`Failed to create wallet: ${res.status} ${await res.text()}`);
   }
   return res.json() as Promise<CrossmintWallet>;
+}
+
+export async function registerEmailSigner(
+  userId: string,
+  email: string
+): Promise<EmailSignerRegistration> {
+  const res = await fetch(`${CROSSMINT_API_URL}/wallets/${stellarWalletLocator(userId)}/signers`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ signer: { type: "email", email } }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to register email signer: ${res.status} ${await res.text()}`);
+  }
+
+  const body = (await res.json()) as {
+    locator: string;
+    address: string;
+    transaction?: { id: string; status?: string };
+  };
+  const registration: EmailSignerRegistration = {
+    locator: body.locator,
+    address: body.address,
+  };
+  if (body.transaction != null) {
+    registration.transactionId = body.transaction.id;
+    if (body.transaction.status != null) {
+      registration.status = body.transaction.status;
+    }
+  }
+  return registration;
 }
 
 export async function getWallet(userId: string): Promise<CrossmintWallet> {

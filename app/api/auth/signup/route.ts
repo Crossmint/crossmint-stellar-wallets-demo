@@ -7,8 +7,9 @@ import type { DevicePublicKey } from "@/lib/types";
  * POST /api/auth/signup
  * Creates (or returns) the caller's Stellar smart wallet server-side. The user
  * is taken from the verified Firebase ID token, never from the request body,
- * so a caller can only ever act on their own wallet. The device public key,
- * when present, is registered as a delegated signer at creation time.
+ * so a caller can only ever act on their own wallet. The device public key and
+ * operational email, when present, are registered as delegated signers at
+ * creation time.
  */
 export async function POST(request: Request) {
   const user = await verifyAuth(request).catch(() => null);
@@ -20,8 +21,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { devicePublicKey } = (await request.json()) as { devicePublicKey?: DevicePublicKey };
-    const wallet = await getOrCreateWallet(user.uid, user.email, devicePublicKey);
+    const { devicePublicKey, operationalEmail } = (await request.json()) as {
+      devicePublicKey?: DevicePublicKey;
+      operationalEmail?: string;
+    };
+    const wallet = await getOrCreateWallet(user.uid, user.email, {
+      devicePublicKey,
+      operationalEmail,
+    });
     return NextResponse.json({ userId: user.uid, email: user.email, walletAddress: wallet.address });
   } catch (error) {
     return NextResponse.json(

@@ -9,17 +9,26 @@
  *
  * Same-origin requests, so no base URL is needed.
  */
-import type { DevicePublicKey, SignUpResponse, TransferResponse } from "./types";
+import type {
+  DevicePublicKey,
+  EmailSignerRegistration,
+  SignUpResponse,
+  TransferResponse,
+} from "./types";
 
 /** Creates (or fetches) the caller's wallet server-side. Passes the device signer public key so the server registers it as a delegated signer. */
-export async function signup(jwt: string, devicePublicKey?: DevicePublicKey): Promise<SignUpResponse> {
+export async function signup(
+  jwt: string,
+  devicePublicKey?: DevicePublicKey,
+  operationalEmail?: string
+): Promise<SignUpResponse> {
   const res = await fetch("/api/auth/signup", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify({ devicePublicKey }),
+    body: JSON.stringify({ devicePublicKey, operationalEmail }),
   });
 
   if (!res.ok) {
@@ -48,4 +57,21 @@ export async function createTransaction(
     throw new Error((await res.text()) || "Failed to send transaction");
   }
   return res.json() as Promise<TransferResponse>;
+}
+
+/** Registers an operational email signer for the caller's wallet server-side. */
+export async function addEmailSigner(jwt: string, email: string): Promise<EmailSignerRegistration> {
+  const res = await fetch("/api/wallets/signers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    throw new Error((await res.text()) || "Failed to register email signer");
+  }
+  return res.json() as Promise<EmailSignerRegistration>;
 }

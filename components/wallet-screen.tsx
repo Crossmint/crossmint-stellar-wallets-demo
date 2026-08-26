@@ -5,6 +5,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { useWalletRecovery } from "@/hooks/use-wallet-recovery";
 import { WalletCard } from "./wallet-card";
 import { SendCard } from "./send-card";
+import { AddSignerCard } from "./add-signer-card";
 import { ExportCard } from "./export-card";
 import { MigrationBanner } from "./migration-banner";
 
@@ -40,6 +41,7 @@ export function WalletScreen() {
 
       <WalletCard />
       <SendCard disabled={isRecovering} />
+      <AddSignerCard disabled={isRecovering} />
       <ExportCard />
     </div>
   );

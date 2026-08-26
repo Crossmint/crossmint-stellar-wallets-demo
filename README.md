@@ -22,13 +22,18 @@ createDeviceSigner() -> device {x,y}    ---->     get-or-create Stellar wallet
 getWallet({ chain: "stellar" })                   (email admin + device delegated)
 migration: upgrade() + recover()
                                                 POST /api/wallets/send
+                                                POST /api/wallets/signers
 build transfer ------------------------>          create USDC transfer tx
 wallet.approve({ transactionId })       <----     returns { id }
+email signer registration -------------->          create delegated signer tx
+wallet.useSigner(email) + approve()     <----     admin email OTP approval
 export: ExportPrivateKeyButton + onExport
 ```
 
-- **Server side**: wallet creation, transfer creation (`lib/crossmint-server.ts`, `app/api/*`). The server verifies the Firebase ID token and derives the user from it, never from the request body.
-- **Client side**: `getWallet`, device-key creation, and migration (`providers/auth-provider.tsx`, `hooks/*`, `lib/wallet-migration.ts`).
+- **Server side**: wallet creation, transfer and signer registration (`lib/crossmint-server.ts`, `app/api/*`). The server verifies the Firebase ID token and derives the user from it, never from the request body.
+- **Client side**: `getWallet`, device-key creation, migration, and delegated signer approval (`providers/auth-provider.tsx`, `hooks/*`, `lib/wallet-migration.ts`).
+- `POST /api/auth/signup` accepts an optional `operationalEmail` to create a wallet with an email operational signer from birth.
+- Signer registration is approved client-side with the admin email signer because the SDK's OTP flow requires that signer.
 
 Auth is **Firebase** (configured as a 3P auth provider on the Crossmint project, verifier claim `sub`), not Crossmint's built-in auth, so there is no `CrossmintAuthProvider`. `AuthProvider` bridges the Firebase ID token into Crossmint via `setJwt()`.
 
@@ -70,16 +75,18 @@ Enable the Email/Password sign-in provider in your Firebase project's Authentica
 1. Sign in with Firebase. An existing user whose Stellar wallet predates device signers exercises the **legacy migration** path; a brand-new user exercises the **new-wallet** path.
 2. The wallet loads; legacy wallets show "Migrating wallet..." and prompt for a single email OTP, then settle.
 3. **Send USDC** - the transfer is created server-side and approved client-side with the device signer (silent post-migration).
-4. **Export private key** - exports the email signer key and fires the `onExport` compliance hook.
+4. **Add an operational signer** - submit an email; the server creates the registration and the client approves it with the admin email OTP.
+5. **Export private key** - exports the email signer key and fires the `onExport` compliance hook.
 
 ## File map
 
 | Path | Purpose |
 |---|---|
-| `lib/crossmint-server.ts` | Server REST client (wallet + transfer creation), holds `sk_` key |
+| `lib/crossmint-server.ts` | Server REST client (wallet + transfer + signer creation), holds `sk_` key |
 | `lib/firebase-admin.ts` | Verifies the Firebase ID token on the API routes |
 | `app/api/auth/signup/route.ts` | Get-or-create the user's Stellar wallet |
 | `app/api/wallets/send/route.ts` | Create a USDC transfer transaction |
+| `app/api/wallets/signers/route.ts` | Register an operational email signer |
 | `lib/firebase.ts` | Firebase init (web) |
 | `lib/api.ts` | Client -> server calls |
 | `lib/wallet-migration.ts` | `migrateLegacyWallet`: `upgrade()` + `recover()` |
@@ -87,4 +94,7 @@ Enable the Email/Password sign-in provider in your Firebase project's Authentica
 | `app/providers.tsx` | Provider stack |
 | `hooks/use-wallet-recovery.ts` | Runs migration when `needsRecovery()` |
 | `hooks/use-send-transaction.ts` | Server tx creation + client approval |
+| `hooks/use-add-email-signer.ts` | Server signer registration + client admin approval |
+| `hooks/use-wallet-signers.ts` | Lists the wallet's delegated signers |
+| `components/add-signer-card.tsx` | Add and list operational email signers |
 | `components/export-card.tsx` | `ExportPrivateKeyButton` + `onExport` |
