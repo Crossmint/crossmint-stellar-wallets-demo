@@ -27,3 +27,13 @@ export interface TransferResponse {
   id: string;
   status?: string;
 }
+
+/** Wallet transaction, as returned by POST/GET /wallets/{locator}/transactions. */
+export interface WalletTransaction {
+  id: string;
+  status: string;
+  error?: unknown;
+}
+
+/** Response from POST /api/wallets/migrate. `upToDate` means the wallet needs no migration. */
+export type MigrationTransactionResponse = WalletTransaction | { upToDate: true };
