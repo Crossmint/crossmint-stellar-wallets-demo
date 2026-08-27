@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createLifecycleTransaction, getTransaction } from "@/lib/crossmint-server";
+import { createLifecycleTransaction } from "@/lib/crossmint-server";
 import type { LifecycleTransactionType } from "@/lib/crossmint-server";
 import { verifyAuth } from "@/lib/firebase-admin";
 
@@ -13,7 +13,8 @@ interface MigrateBody {
  * server-side with the secret key. The wallet is resolved from the verified
  * Firebase token's user, never from the request body. The client approves the
  * returned transaction with wallet.approve() (routed to the admin signer's OTP
- * flow). Responds { upToDate: true } when the wallet needs no migration.
+ * flow) and polls it to completion directly against the Crossmint API with the
+ * client key. Responds { upToDate: true } when the wallet needs no migration.
  */
 export async function POST(request: Request) {
   const user = await verifyAuth(request).catch(() => null);
@@ -39,29 +40,3 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * GET /api/wallets/migrate?transactionId=...
- * Returns the transaction's current status so the client can poll a lifecycle
- * transaction to completion after approving it.
- */
-export async function GET(request: Request) {
-  const user = await verifyAuth(request).catch(() => null);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const transactionId = new URL(request.url).searchParams.get("transactionId");
-  if (!transactionId) {
-    return NextResponse.json({ error: "transactionId is required" }, { status: 400 });
-  }
-
-  try {
-    const tx = await getTransaction(user.uid, transactionId);
-    return NextResponse.json(tx);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to get transaction" },
-      { status: 500 }
-    );
-  }
-}

@@ -1,5 +1,5 @@
 import type { Chain, Wallet } from "@crossmint/client-sdk-react-ui";
-import { createMigrationTransaction, getMigrationTransaction } from "./api";
+import { createMigrationTransaction } from "./api";
 import type { WalletTransaction } from "./types";
 
 const POLL_INTERVAL_MS = 2_000;
@@ -15,8 +15,10 @@ const POLL_TIMEOUT_MS = 3 * 60_000;
  * Both lifecycle transactions are created SERVER-SIDE (with the secret key,
  * via /api/wallets/migrate) and come back "awaiting-approval". The approval
  * routes to the wallet's admin signer, so the user approves each one here with
- * wallet.approve() through the SDK's OTP flow, and the client polls the server
- * until the transaction succeeds before starting the next phase.
+ * wallet.approve() through the SDK's OTP flow, and the client polls the
+ * Crossmint API directly (via the SDK's apiClient, using the client key's
+ * wallets:transactions.read scope) until the transaction succeeds before
+ * starting the next phase.
  *
  * Each phase is attempted unconditionally and a "not needed" response
  * ({ upToDate: true }) is skipped: "already on the latest version" on phase 1,
@@ -40,7 +42,7 @@ export async function migrateLegacyWallet(
   for (const type of ["upgrade-wallet", "migrate-wallet"] as const) {
     const transaction = await createMigrationTransaction(jwt, type);
     if (!("upToDate" in transaction)) {
-      await approveAndAwaitSuccess(wallet, jwt, transaction);
+      await approveAndAwaitSuccess(wallet, transaction);
     }
   }
 
@@ -50,7 +52,6 @@ export async function migrateLegacyWallet(
 
 async function approveAndAwaitSuccess(
   wallet: Wallet<Chain>,
-  jwt: string,
   transaction: WalletTransaction
 ): Promise<void> {
   if (transaction.status === "awaiting-approval") {
@@ -58,15 +59,21 @@ async function approveAndAwaitSuccess(
   }
 
   const deadline = Date.now() + POLL_TIMEOUT_MS;
-  let current = transaction;
-  while (current.status !== "success") {
-    if (current.status === "failed") {
-      throw new Error(`Transaction ${current.id} failed: ${JSON.stringify(current.error)}`);
+  let status = transaction.status;
+  let error: unknown = transaction.error;
+  while (status !== "success") {
+    if (status === "failed") {
+      throw new Error(`Transaction ${transaction.id} failed: ${JSON.stringify(error)}`);
     }
     if (Date.now() > deadline) {
-      throw new Error(`Timed out waiting for transaction ${current.id} (status: ${current.status})`);
+      throw new Error(`Timed out waiting for transaction ${transaction.id} (status: ${status})`);
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    current = await getMigrationTransaction(jwt, transaction.id);
+    const current = await wallet.apiClient.getTransaction(wallet.address, transaction.id);
+    if (!("status" in current)) {
+      throw new Error(`Failed to get transaction ${transaction.id}: ${JSON.stringify(current)}`);
+    }
+    status = current.status;
+    error = "error" in current ? current.error : undefined;
   }
 }

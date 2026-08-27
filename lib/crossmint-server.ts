@@ -123,18 +123,6 @@ export async function createLifecycleTransaction(
   return res.json() as Promise<WalletTransaction>;
 }
 
-/** Fetches a transaction's current status, for polling lifecycle transactions to completion. */
-export async function getTransaction(userId: string, transactionId: string): Promise<WalletTransaction> {
-  const res = await fetch(
-    `${CROSSMINT_API_URL}/wallets/${stellarWalletLocator(userId)}/transactions/${transactionId}`,
-    { headers: { "X-API-KEY": apiKey } }
-  );
-  if (!res.ok) {
-    throw new Error(`Failed to get transaction: ${res.status} ${await res.text()}`);
-  }
-  return res.json() as Promise<WalletTransaction>;
-}
-
 /**
  * Creates a USDC transfer transaction. When a signer locator is passed (the
  * device signer post-migration), the approval is routed to it so signing is

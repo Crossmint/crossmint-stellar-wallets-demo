@@ -82,7 +82,7 @@ Enable the Email/Password sign-in provider in your Firebase project's Authentica
 | `lib/firebase-admin.ts` | Verifies the Firebase ID token on the API routes |
 | `app/api/auth/signup/route.ts` | Get-or-create the user's Stellar wallet |
 | `app/api/wallets/send/route.ts` | Create a USDC transfer transaction |
-| `app/api/wallets/migrate/route.ts` | Create/poll `upgrade-wallet` and `migrate-wallet` transactions |
+| `app/api/wallets/migrate/route.ts` | Create `upgrade-wallet` and `migrate-wallet` transactions |
 | `lib/firebase.ts` | Firebase init (web) |
 | `lib/api.ts` | Client -> server calls |
 | `lib/wallet-migration.ts` | `migrateLegacyWallet`: approve server-created lifecycle txs + `recover()` |

@@ -14,7 +14,6 @@ import type {
   MigrationTransactionResponse,
   SignUpResponse,
   TransferResponse,
-  WalletTransaction,
 } from "./types";
 
 /** Creates (or fetches) the caller's wallet server-side. Passes the device signer public key so the server registers it as a delegated signer. */
@@ -54,20 +53,6 @@ export async function createMigrationTransaction(
   return res.json() as Promise<MigrationTransactionResponse>;
 }
 
-/** Fetches a lifecycle transaction's status, for polling it to completion after approval. */
-export async function getMigrationTransaction(
-  jwt: string,
-  transactionId: string
-): Promise<WalletTransaction> {
-  const res = await fetch(`/api/wallets/migrate?transactionId=${encodeURIComponent(transactionId)}`, {
-    headers: { Authorization: `Bearer ${jwt}` },
-  });
-
-  if (!res.ok) {
-    throw new Error((await res.text()) || "Failed to get migration transaction");
-  }
-  return res.json() as Promise<WalletTransaction>;
-}
 
 /** Creates a USDC transfer transaction server-side. Pass the device signer locator so the approval is routed to it. */
 export async function createTransaction(
