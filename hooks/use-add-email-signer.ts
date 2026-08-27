@@ -24,7 +24,10 @@ export const useAddEmailSigner = () => {
       }
 
       const registration = await addEmailSigner(jwt, signerEmail);
-      if (registration.transactionId == null) {
+      if (
+        registration.transactionId == null ||
+        (registration.status != null && registration.status !== "awaiting-approval")
+      ) {
         return registration;
       }
 
