@@ -2,7 +2,7 @@
 
 A reference web app showcasing Crossmint wallet features on **Stellar**, end to end on staging:
 
-1. **Legacy wallet migration** - upgrade a V1 smart wallet to V2 and register a device signer (`upgrade()` + `recover()`).
+1. **Legacy wallet migration** - upgrade a V1 smart wallet to V2 and register a device signer. The `upgrade-wallet` and `migrate-wallet` transactions are created server-side; the user approves each client-side via `wallet.approve()` (OTP), then `recover()` registers the device signer.
 2. **Server-side wallet and transfer creation** (BFF) - the server holds the secret key; the browser never creates wallets or transactions directly.
 3. **OTP signing** - the SDK's built-in email-OTP flow for non-custodial signers.
 4. **Export private key** - with an `onExport` compliance hook.
@@ -20,7 +20,9 @@ Browser (ck_ client key + Firebase JWT)        Next.js server (sk_ server key)
 Firebase login -> setJwt()                      POST /api/auth/signup
 createDeviceSigner() -> device {x,y}    ---->     get-or-create Stellar wallet
 getWallet({ chain: "stellar" })                   (email admin + device delegated)
-migration: upgrade() + recover()
+migration: approve tx + recover()  ---->        POST /api/wallets/migrate
+                                        <----     creates upgrade-wallet /
+                                                  migrate-wallet transactions
                                                 POST /api/wallets/send
                                                 POST /api/wallets/signers
 build transfer ------------------------>          create USDC transfer tx
@@ -30,8 +32,8 @@ wallet.useSigner(email) + approve()     <----     admin email OTP approval
 export: ExportPrivateKeyButton + onExport
 ```
 
-- **Server side**: wallet creation, transfer and signer registration (`lib/crossmint-server.ts`, `app/api/*`). The server verifies the Firebase ID token and derives the user from it, never from the request body.
-- **Client side**: `getWallet`, device-key creation, migration, and delegated signer approval (`providers/auth-provider.tsx`, `hooks/*`, `lib/wallet-migration.ts`).
+- **Server side**: wallet creation, transfer, signer registration, and migration/upgrade transaction creation (`lib/crossmint-server.ts`, `app/api/*`). The server verifies the Firebase ID token and derives the user from it, never from the request body.
+- **Client side**: `getWallet`, device-key creation, migration approvals, and delegated signer approval (`providers/auth-provider.tsx`, `hooks/*`, `lib/wallet-migration.ts`).
 - `POST /api/auth/signup` accepts an optional `operationalEmail` to create a wallet with an email operational signer from birth.
 - Signer registration is approved client-side with the admin email signer because the SDK's OTP flow requires that signer.
 
@@ -42,9 +44,9 @@ Auth is **Firebase** (configured as a 3P auth provider on the Crossmint project,
 | State | What happens |
 |---|---|
 | **New wallet** | Created server-side with the email admin signer **and the device signer pre-registered** as a delegated signer. Frictionless from birth, no migration. |
-| **Legacy wallet** (no device key) | SDK reports `wallet.needsRecovery() === true`. On load, the client runs `migrateLegacyWallet`: `upgrade()` (V1 -> V2, two-phase, idempotent) then `recover()` to register the device signer. One email OTP, then silent. |
+| **Legacy wallet** (no device key) | SDK reports `wallet.needsRecovery() === true`. On load, the client runs `migrateLegacyWallet`: the server creates the `upgrade-wallet` then `migrate-wallet` transactions (V1 -> V2), the client approves each with `wallet.approve()` and polls to success, then `recover()` registers the device signer. |
 
-The migration is idempotent: a 409 resumes at phase 2, and an already-V2 wallet returns "no upgrade path" which is treated as a no-op (so new wallets fall straight through to `recover()`).
+An already-V2 wallet returns "already on the latest version" on the `upgrade-wallet` step, which is treated as a no-op (so new wallets fall straight through to `recover()`). The two lifecycle approvals route to the wallet's admin signer, so a legacy user sees two OTP prompts during migration - by design for wallet lifecycle operations.
 
 > See the [Crossmint wallet docs](https://docs.crossmint.com/wallets) for the SDK methods used here.
 
@@ -82,14 +84,15 @@ Enable the Email/Password sign-in provider in your Firebase project's Authentica
 
 | Path | Purpose |
 |---|---|
-| `lib/crossmint-server.ts` | Server REST client (wallet + transfer + signer creation), holds `sk_` key |
+| `lib/crossmint-server.ts` | Server REST client (wallet, transfer, signer + lifecycle tx creation), holds `sk_` key |
 | `lib/firebase-admin.ts` | Verifies the Firebase ID token on the API routes |
 | `app/api/auth/signup/route.ts` | Get-or-create the user's Stellar wallet |
 | `app/api/wallets/send/route.ts` | Create a USDC transfer transaction |
 | `app/api/wallets/signers/route.ts` | Register an operational email signer |
+| `app/api/wallets/migrate/route.ts` | Create `upgrade-wallet` and `migrate-wallet` transactions |
 | `lib/firebase.ts` | Firebase init (web) |
 | `lib/api.ts` | Client -> server calls |
-| `lib/wallet-migration.ts` | `migrateLegacyWallet`: `upgrade()` + `recover()` |
+| `lib/wallet-migration.ts` | `migrateLegacyWallet`: approve server-created lifecycle txs + `recover()` |
 | `providers/auth-provider.tsx` | Firebase JWT bridge + wallet bootstrap |
 | `app/providers.tsx` | Provider stack |
 | `hooks/use-wallet-recovery.ts` | Runs migration when `needsRecovery()` |

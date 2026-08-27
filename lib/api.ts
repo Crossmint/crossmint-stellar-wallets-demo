@@ -12,6 +12,7 @@
 import type {
   DevicePublicKey,
   EmailSignerRegistration,
+  MigrationTransactionResponse,
   SignUpResponse,
   TransferResponse,
 } from "./types";
@@ -54,6 +55,27 @@ export async function signup(
   }
   return res.json() as Promise<SignUpResponse>;
 }
+
+/** Creates a wallet lifecycle transaction (upgrade-wallet or migrate-wallet) server-side. */
+export async function createMigrationTransaction(
+  jwt: string,
+  type: "upgrade-wallet" | "migrate-wallet"
+): Promise<MigrationTransactionResponse> {
+  const res = await fetch("/api/wallets/migrate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ type }),
+  });
+
+  if (!res.ok) {
+    throw new Error((await res.text()) || "Failed to create migration transaction");
+  }
+  return res.json() as Promise<MigrationTransactionResponse>;
+}
+
 
 /** Creates a USDC transfer transaction server-side. Pass the device signer locator so the approval is routed to it. */
 export async function createTransaction(

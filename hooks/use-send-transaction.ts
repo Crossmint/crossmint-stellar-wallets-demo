@@ -27,7 +27,7 @@ export const useSendTransaction = () => {
       }
 
       if (wallet.needsRecovery()) {
-        await migrateLegacyWallet(wallet, user.email);
+        await migrateLegacyWallet(wallet, user.email, jwt);
       }
 
       const { recipientAddress, sendAmount } = variables;

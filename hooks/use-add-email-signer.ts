@@ -20,7 +20,7 @@ export const useAddEmailSigner = () => {
       }
 
       if (wallet.needsRecovery()) {
-        await migrateLegacyWallet(wallet, user.email);
+        await migrateLegacyWallet(wallet, user.email, jwt);
       }
 
       const registration = await addEmailSigner(jwt, signerEmail);
