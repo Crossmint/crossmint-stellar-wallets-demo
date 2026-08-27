@@ -11,24 +11,47 @@
  */
 import type {
   DevicePublicKey,
+  EmailSignerRegistration,
   MigrationTransactionResponse,
   SignUpResponse,
   TransferResponse,
 } from "./types";
 
+async function getResponseError(res: Response, defaultMessage: string): Promise<string> {
+  const text = await res.text();
+  if (text.trim() === "") {
+    return defaultMessage;
+  }
+
+  try {
+    const body = JSON.parse(text) as { error?: string } | null;
+    if (body != null && typeof body.error === "string") {
+      return body.error;
+    }
+  } catch {
+    // Not JSON: fall through to the raw body.
+  }
+
+  return text;
+}
+
 /** Creates (or fetches) the caller's wallet server-side. Passes the device signer public key so the server registers it as a delegated signer. */
-export async function signup(jwt: string, devicePublicKey?: DevicePublicKey): Promise<SignUpResponse> {
+export async function signup(
+  jwt: string,
+  devicePublicKey?: DevicePublicKey,
+  operationalEmail?: string
+): Promise<SignUpResponse> {
   const res = await fetch("/api/auth/signup", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify({ devicePublicKey }),
+    body: JSON.stringify({ devicePublicKey, operationalEmail }),
   });
 
   if (!res.ok) {
-    throw new Error((await res.text()) || "Failed to sign up");
+    throw new Error(await getResponseError(res, "Failed to sign up"));
   }
   return res.json() as Promise<SignUpResponse>;
 }
@@ -71,7 +94,24 @@ export async function createTransaction(
   });
 
   if (!res.ok) {
-    throw new Error((await res.text()) || "Failed to send transaction");
+    throw new Error(await getResponseError(res, "Failed to send transaction"));
   }
   return res.json() as Promise<TransferResponse>;
+}
+
+/** Registers an operational email signer for the caller's wallet server-side. */
+export async function addEmailSigner(jwt: string, email: string): Promise<EmailSignerRegistration> {
+  const res = await fetch("/api/wallets/signers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await getResponseError(res, "Failed to register email signer"));
+  }
+  return res.json() as Promise<EmailSignerRegistration>;
 }
