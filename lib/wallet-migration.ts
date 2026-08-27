@@ -18,10 +18,10 @@ const POLL_TIMEOUT_MS = 3 * 60_000;
  * wallet.approve() through the SDK's OTP flow, and the client polls the server
  * until the transaction succeeds before starting the next phase.
  *
- * A wallet that's already V2 returns "already on the latest version" on
- * phase 1 - the server maps that to { upToDate: true } and both phases are
- * skipped, which is exactly the case for new wallets that were born on V2 and
- * only need a device signer.
+ * Each phase is attempted unconditionally and a "not needed" response
+ * ({ upToDate: true }) is skipped: "already on the latest version" on phase 1,
+ * "no upgrade in progress" on phase 2. New wallets born on V2 skip both, and a
+ * migration interrupted between the phases resumes at phase 2 on the next run.
  *
  * The active signer is set to email for the approvals (the admin signer) and
  * to device for the final recover() call. recover() registers the local device
@@ -37,13 +37,10 @@ export async function migrateLegacyWallet(
 
   await wallet.useSigner({ type: "email", email });
 
-  const upgrade = await createMigrationTransaction(jwt, "upgrade-wallet");
-  if (!("upToDate" in upgrade)) {
-    await approveAndAwaitSuccess(wallet, jwt, upgrade);
-
-    const migrate = await createMigrationTransaction(jwt, "migrate-wallet");
-    if (!("upToDate" in migrate)) {
-      await approveAndAwaitSuccess(wallet, jwt, migrate);
+  for (const type of ["upgrade-wallet", "migrate-wallet"] as const) {
+    const transaction = await createMigrationTransaction(jwt, type);
+    if (!("upToDate" in transaction)) {
+      await approveAndAwaitSuccess(wallet, jwt, transaction);
     }
   }
 

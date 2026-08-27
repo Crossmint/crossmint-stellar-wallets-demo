@@ -96,7 +96,9 @@ export type LifecycleTransactionType = "upgrade-wallet" | "migrate-wallet";
  * The transaction comes back "awaiting-approval" and the approval routes to
  * the wallet's admin signer, so the user approves it client-side via
  * wallet.approve() (OTP flow). Returns { upToDate: true } when the API says
- * the wallet is already on the latest version.
+ * the phase is not needed: "already on the latest version" for upgrade-wallet,
+ * "no upgrade in progress" for migrate-wallet (each phase is attempted
+ * unconditionally so an interrupted migration can resume at phase 2).
  */
 export async function createLifecycleTransaction(
   userId: string,
@@ -113,7 +115,7 @@ export async function createLifecycleTransaction(
 
   if (!res.ok) {
     const text = await res.text();
-    if (/already on the latest version/i.test(text)) {
+    if (/already on the latest version/i.test(text) || /no upgrade in progress/i.test(text)) {
       return { upToDate: true };
     }
     throw new Error(`Failed to create ${type} transaction: ${res.status} ${text}`);
