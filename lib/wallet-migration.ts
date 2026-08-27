@@ -16,7 +16,7 @@ const POLL_TIMEOUT_MS = 3 * 60_000;
  * via /api/wallets/migrate) and come back "awaiting-approval". The approval
  * routes to the wallet's admin signer, so the user approves each one here with
  * wallet.approve() through the SDK's OTP flow, and the client polls the
- * Crossmint API directly (via the SDK's apiClient, using the client key's
+ * Crossmint API directly (via wallet.transaction(), using the client key's
  * wallets:transactions.read scope) until the transaction succeeds before
  * starting the next phase.
  *
@@ -69,10 +69,7 @@ async function approveAndAwaitSuccess(
       throw new Error(`Timed out waiting for transaction ${transaction.id} (status: ${status})`);
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    const current = await wallet.apiClient.getTransaction(wallet.address, transaction.id);
-    if (!("status" in current)) {
-      throw new Error(`Failed to get transaction ${transaction.id}: ${JSON.stringify(current)}`);
-    }
+    const current = await wallet.transaction(transaction.id);
     status = current.status;
     error = "error" in current ? current.error : undefined;
   }
