@@ -27,7 +27,9 @@ async function getResponseError(res: Response, defaultMessage: string): Promise<
     if (body != null && typeof body.error === "string") {
       return body.error;
     }
-  } catch {}
+  } catch {
+    // Not JSON: fall through to the raw body.
+  }
 
   return text;
 }

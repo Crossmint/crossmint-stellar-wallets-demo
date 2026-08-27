@@ -110,23 +110,17 @@ export async function registerEmailSigner(
   const body = (await res.json()) as {
     locator: string;
     address: string;
-    transactionId?: string;
-    status?: string;
-    transaction?: { id?: string; status?: string };
+    transaction?: { id: string; status?: string };
   };
   const registration: EmailSignerRegistration = {
     locator: body.locator,
     address: body.address,
   };
-  if (body.transactionId != null) {
-    registration.transactionId = body.transactionId;
-  } else if (body.transaction?.id != null) {
+  if (body.transaction != null) {
     registration.transactionId = body.transaction.id;
-  }
-  if (body.status != null) {
-    registration.status = body.status;
-  } else if (body.transaction?.status != null) {
-    registration.status = body.transaction.status;
+    if (body.transaction.status != null) {
+      registration.status = body.transaction.status;
+    }
   }
   return registration;
 }
