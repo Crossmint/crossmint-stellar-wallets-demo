@@ -14,18 +14,18 @@ import { migrateLegacyWallet } from "@/lib/wallet-migration";
  */
 export const useWalletRecovery = () => {
   const { wallet } = useWallet();
-  const { email } = useAuth();
+  const { email, jwt } = useAuth();
 
   const { isFetching: isRecovering } = useQuery({
     queryKey: ["wallet-migration", wallet?.address],
     queryFn: async () => {
-      if (!wallet || !email) {
-        throw new Error("Wallet or email not found");
+      if (!wallet || !email || !jwt) {
+        throw new Error("Wallet, email or JWT not found");
       }
-      await migrateLegacyWallet(wallet, email);
+      await migrateLegacyWallet(wallet, email, jwt);
       return true;
     },
-    enabled: !!wallet && !!email && wallet.needsRecovery(),
+    enabled: !!wallet && !!email && !!jwt && wallet.needsRecovery(),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
     retry: false,

@@ -6,7 +6,7 @@
  * The web client only carries the public client key and cannot create wallets
  * or transactions directly; it goes through these endpoints.
  */
-import type { CrossmintWallet, DevicePublicKey, TransferResponse } from "./types";
+import type { CrossmintWallet, DevicePublicKey, TransferResponse, WalletTransaction } from "./types";
 
 const CROSSMINT_API_URL =
   process.env.CROSSMINT_API_URL ?? "https://staging.crossmint.com/api/2025-06-09";
@@ -87,6 +87,50 @@ export async function getWallet(userId: string): Promise<CrossmintWallet> {
     throw new Error(`Failed to get wallet: ${res.status} ${await res.text()}`);
   }
   return res.json() as Promise<CrossmintWallet>;
+}
+
+export type LifecycleTransactionType = "upgrade-wallet" | "migrate-wallet";
+
+/**
+ * Creates a wallet lifecycle transaction (upgrade-wallet or migrate-wallet).
+ * The transaction comes back "awaiting-approval" and the approval routes to
+ * the wallet's admin signer, so the user approves it client-side via
+ * wallet.approve() (OTP flow). Returns { upToDate: true } when the API says
+ * the wallet is already on the latest version.
+ */
+export async function createLifecycleTransaction(
+  userId: string,
+  type: LifecycleTransactionType
+): Promise<WalletTransaction | { upToDate: true }> {
+  const res = await fetch(
+    `${CROSSMINT_API_URL}/wallets/${stellarWalletLocator(userId)}/transactions`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ params: { transaction: { type } } }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    if (/already on the latest version/i.test(text)) {
+      return { upToDate: true };
+    }
+    throw new Error(`Failed to create ${type} transaction: ${res.status} ${text}`);
+  }
+  return res.json() as Promise<WalletTransaction>;
+}
+
+/** Fetches a transaction's current status, for polling lifecycle transactions to completion. */
+export async function getTransaction(userId: string, transactionId: string): Promise<WalletTransaction> {
+  const res = await fetch(
+    `${CROSSMINT_API_URL}/wallets/${stellarWalletLocator(userId)}/transactions/${transactionId}`,
+    { headers: { "X-API-KEY": apiKey } }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to get transaction: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<WalletTransaction>;
 }
 
 /**

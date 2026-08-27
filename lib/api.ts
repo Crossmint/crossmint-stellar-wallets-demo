@@ -9,7 +9,13 @@
  *
  * Same-origin requests, so no base URL is needed.
  */
-import type { DevicePublicKey, SignUpResponse, TransferResponse } from "./types";
+import type {
+  DevicePublicKey,
+  MigrationTransactionResponse,
+  SignUpResponse,
+  TransferResponse,
+  WalletTransaction,
+} from "./types";
 
 /** Creates (or fetches) the caller's wallet server-side. Passes the device signer public key so the server registers it as a delegated signer. */
 export async function signup(jwt: string, devicePublicKey?: DevicePublicKey): Promise<SignUpResponse> {
@@ -26,6 +32,41 @@ export async function signup(jwt: string, devicePublicKey?: DevicePublicKey): Pr
     throw new Error((await res.text()) || "Failed to sign up");
   }
   return res.json() as Promise<SignUpResponse>;
+}
+
+/** Creates a wallet lifecycle transaction (upgrade-wallet or migrate-wallet) server-side. */
+export async function createMigrationTransaction(
+  jwt: string,
+  type: "upgrade-wallet" | "migrate-wallet"
+): Promise<MigrationTransactionResponse> {
+  const res = await fetch("/api/wallets/migrate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ type }),
+  });
+
+  if (!res.ok) {
+    throw new Error((await res.text()) || "Failed to create migration transaction");
+  }
+  return res.json() as Promise<MigrationTransactionResponse>;
+}
+
+/** Fetches a lifecycle transaction's status, for polling it to completion after approval. */
+export async function getMigrationTransaction(
+  jwt: string,
+  transactionId: string
+): Promise<WalletTransaction> {
+  const res = await fetch(`/api/wallets/migrate?transactionId=${encodeURIComponent(transactionId)}`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+
+  if (!res.ok) {
+    throw new Error((await res.text()) || "Failed to get migration transaction");
+  }
+  return res.json() as Promise<WalletTransaction>;
 }
 
 /** Creates a USDC transfer transaction server-side. Pass the device signer locator so the approval is routed to it. */
