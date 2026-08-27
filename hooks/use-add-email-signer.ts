@@ -49,6 +49,7 @@ export const useAddEmailSigner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["wallet-signers", wallet?.address] });
+      queryClient.invalidateQueries({ queryKey: ["active-signer", wallet?.address] });
     },
   });
 };

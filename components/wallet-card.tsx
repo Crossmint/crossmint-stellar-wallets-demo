@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@crossmint/client-sdk-react-ui";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
 
@@ -24,10 +25,18 @@ function CopyButton({ value }: { value: string }) {
 export function WalletCard() {
   const { wallet } = useWallet();
   const { data: balance, isLoading, refetch } = useWalletBalance();
+  const { data: signerLocator = "-" } = useQuery({
+    queryKey: ["active-signer", wallet?.address],
+    queryFn: () => {
+      if (wallet == null) {
+        throw new Error("Wallet not ready");
+      }
+      return wallet.signer?.locator() ?? "-";
+    },
+    enabled: wallet != null,
+  });
 
   if (!wallet) return null;
-
-  const signerLocator = wallet.signer?.locator() ?? "-";
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm">
