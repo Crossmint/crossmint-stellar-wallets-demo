@@ -15,9 +15,9 @@ Teams that:
 
 ## 1. The model
 
-A Stellar smart wallet has **1 to 10 recovery signers**. They form a flat **1-of-N** set: each recovery signer independently holds full admin power — it can sign transactions, approve pending approvals, add/remove delegated signers (e.g. device signers), and recover the wallet on a new device. There is no quorum; any single recovery signer is sufficient.
+A Stellar smart wallet has **1 to N recovery signers** (limited to 10 as of now). They form a flat **1-of-N** set: each recovery signer independently holds full admin power — it can sign transactions, approve pending approvals, add/remove delegated signers (e.g. device signers), and recover the wallet on a new device. There is no quorum; any single recovery signer is sufficient.
 
-Allowed recovery signer types on Stellar: `email`, `phone`, `external-wallet`, `server`, `api-key`. `device` signers can never be recovery signers (they are delegated signers, added per-device).
+Allowed recovery signer types on Stellar: `email`, `phone`, `external-wallet`, `server`. `device` signers can never be recovery signers (they are delegated signers, added per-device).
 
 Key behavioral rule: once a wallet has **more than one** recovery signer, any request that needs admin authorization must **name which recovery signer authorizes it**. Omitting it returns:
 
@@ -25,7 +25,7 @@ Key behavioral rule: once a wallet has **more than one** recovery signer, any re
 
 | Operation | Field | Value |
 |---|---|---|
-| Create transaction / signature | `params.signer` | any wallet signer locator (recovery or delegated) |
+| Token transfer / create transaction | `signer` (`params.signer` on raw transactions) | any wallet signer locator (recovery or delegated) |
 | Add / remove a signer | `approver` | locator of one of the wallet's **recovery** signers |
 
 Locator format: `email:user@example.com`, `phone:+14155550100`, `device:<base64-public-key>`, `external-wallet:G...`. The `approver` must exactly match one of the wallet's existing recovery signers — otherwise the API returns `400` listing the valid locators. Wallets with exactly one recovery signer keep today's behavior: `signer`/`approver` are optional and fall back to the sole recovery signer.
@@ -84,26 +84,22 @@ Validation notes:
 
 ---
 
-## 3. Creating transactions server-side, approving on mobile
+## 3. Creating transfers server-side, approving on mobile
 
-Create the transaction server-side and name the signer that will approve it. Either recovery signer (phone or email) — or a registered device signer — can be used:
+Create the transfer with the token transfer API and name the signer that will approve it. Either recovery signer (phone or email) — or a registered device signer — can be used:
 
 ```bash
-curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/transactions" \
+curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/tokens/usdc/transfers" \
   -H "X-API-KEY: $CROSSMINT_SERVER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "params": {
-      "signer": "phone:+14155550100",
-      "transaction": {
-        "type": "contract-call",
-        "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-        "method": "transfer",
-        "args": { "from": "...", "to": "...", "amount": "10000000" }
-      }
-    }
+    "recipient": "GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOKY3B2WSQHG4W37",
+    "amount": "10",
+    "signer": "phone:+14155550100"
   }'
 ```
+
+`signer` is optional on single-recovery wallets (defaults to the recovery signer); on multi-recovery wallets it must name the authorizing signer.
 
 The response's `approvals.pending[]` names that signer's locator. The mobile app then approves it.
 
@@ -193,5 +189,5 @@ Wallets migrating to device signers (the flow this demo implements) are unaffect
 | Two inputs resolving to same on-chain address | `400` "Duplicate recovery signer..." |
 | More than 10 recovery signers | `400` (array max 10) |
 | `device` as a recovery signer | `400` (not an allowed type) |
-| Multi-recovery wallet, no `signer`/`approver` on request | `400` "This wallet has multiple recovery signers. Specify which recovery signer should authorize this request." |
+| Multi-recovery wallet, no `signer`/`approver` on the request | `400` "This wallet has multiple recovery signers. Specify which recovery signer should authorize this request." |
 | `approver` not one of the wallet's recovery signers | `400` "'approver' must be one of the wallet's recovery signers. It should be <valid locators>" |
