@@ -5,6 +5,8 @@ import { verifyAuth } from "@/lib/firebase-admin";
 
 interface MigrateBody {
   type: LifecycleTransactionType;
+  /** Recovery-method locator the approval routes to. Required on multi-recovery wallets. */
+  signer?: string;
 }
 
 /**
@@ -23,14 +25,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { type } = (await request.json()) as MigrateBody;
+    const { type, signer } = (await request.json()) as MigrateBody;
     if (type !== "upgrade-wallet" && type !== "migrate-wallet") {
       return NextResponse.json(
         { error: "type must be upgrade-wallet or migrate-wallet" },
         { status: 400 }
       );
     }
-    const tx = await createLifecycleTransaction(user.uid, type);
+    const tx = await createLifecycleTransaction(user.uid, type, signer);
     return NextResponse.json(tx);
   } catch (error) {
     return NextResponse.json(

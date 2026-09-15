@@ -6,8 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { onIdTokenChanged } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { useCrossmint, useWallet } from "@crossmint/client-sdk-react-ui";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 import { signup } from "@/lib/api";
+import type { RecoverySigner } from "@/lib/types";
 
 type AuthState = {
   user: User | null;
@@ -38,6 +39,23 @@ const initialState: AuthState = {
   jwt: null,
 };
 
+/**
+ * The signup form stashes an optional extra recovery method here before the
+ * Firebase user exists; the bootstrap query reads it once on the resulting
+ * login and sends it with the wallet-creation call. Cleared on read.
+ */
+export const PENDING_RECOVERY_SIGNER_KEY = "pending-recovery-signer";
+
+function takePendingRecoverySigners(): RecoverySigner[] {
+  try {
+    const raw = window.localStorage.getItem(PENDING_RECOVERY_SIGNER_KEY);
+    window.localStorage.removeItem(PENDING_RECOVERY_SIGNER_KEY);
+    return raw ? (JSON.parse(raw) as RecoverySigner[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function getIdToken(user: User | null): Promise<string | null> {
   if (!user) return null;
   try {
@@ -66,7 +84,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const { user, jwt, email } = state;
 
   useEffect(() => {
-    return onIdTokenChanged(auth, async (nextUser) => {
+    return onIdTokenChanged(getFirebaseAuth(), async (nextUser) => {
       const nextJwt = await getIdToken(nextUser);
       setState({
         user: nextUser,
@@ -96,7 +114,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         // will register one client-side after the wallet loads.
       }
 
-      await signup(jwt, devicePublicKey);
+      await signup(jwt, devicePublicKey, takePendingRecoverySigners());
       await getWallet({ chain: "stellar" });
       return true;
     },
@@ -111,14 +129,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const refreshToken = useCallback(async () => {
-    const newJwt = await getIdToken(auth.currentUser);
+    const newJwt = await getIdToken(getFirebaseAuth().currentUser);
     setJwt(newJwt ?? undefined);
     setState((prev) => ({ ...prev, jwt: newJwt }));
   }, [setJwt]);
 
   const signOut = useCallback(async () => {
     setJwt(undefined);
-    await auth.signOut();
+    await getFirebaseAuth().signOut();
   }, [setJwt]);
 
   return (

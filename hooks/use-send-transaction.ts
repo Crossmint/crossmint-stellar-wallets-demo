@@ -31,7 +31,10 @@ export const useSendTransaction = () => {
       }
 
       const { recipientAddress, sendAmount } = variables;
-      const signerLocator = wallet.signer?.locator();
+      // Route the approval to the active signer when set (device post-migration);
+      // otherwise name the email recovery method - required on multi-recovery
+      // wallets, where omitting `signer` makes the API 400.
+      const signerLocator = wallet.signer?.locator() ?? `email:${user.email}`;
 
       const { id } = await createTransaction(jwt, recipientAddress, sendAmount, signerLocator);
 

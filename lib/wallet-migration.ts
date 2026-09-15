@@ -25,10 +25,15 @@ const POLL_TIMEOUT_MS = 3 * 60_000;
  * "no upgrade in progress" on phase 2. New wallets born on V2 skip both, and a
  * migration interrupted between the phases resumes at phase 2 on the next run.
  *
- * The active signer is set to email for the approvals (the admin signer) and
+ * The active signer is set to email for the approvals (a recovery method) and
  * to device for the final recover() call. recover() registers the local device
- * key on-chain (authorized by the email admin) and makes it the active signer,
- * so future signing is frictionless.
+ * key on-chain (authorized by the email recovery method) and makes it the
+ * active signer, so future signing is frictionless.
+ *
+ * The lifecycle transactions are created with `signer: email:<email>` so the
+ * approval routes to the user's email recovery method explicitly - required
+ * on wallets with multiple recovery methods (the API 400s when ambiguous),
+ * harmless on single-recovery ones.
  */
 export async function migrateLegacyWallet(
   wallet: Wallet<Chain>,
@@ -40,7 +45,7 @@ export async function migrateLegacyWallet(
   await wallet.useSigner({ type: "email", email });
 
   for (const type of ["upgrade-wallet", "migrate-wallet"] as const) {
-    const transaction = await createMigrationTransaction(jwt, type);
+    const transaction = await createMigrationTransaction(jwt, type, `email:${email}`);
     if (!("upToDate" in transaction)) {
       await approveAndAwaitSuccess(wallet, transaction);
     }

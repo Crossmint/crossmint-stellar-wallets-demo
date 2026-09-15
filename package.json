@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@crossmint/client-sdk-react-ui": "^4.2.11",
+    "@crossmint/client-sdk-react-ui": "^4.6.1",
     "@tanstack/react-query": "^5.66.0",
     "clsx": "^2.1.1",
     "firebase": "^11.3.0",

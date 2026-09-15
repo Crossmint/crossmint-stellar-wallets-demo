@@ -6,6 +6,7 @@ import { useWalletRecovery } from "@/hooks/use-wallet-recovery";
 import { WalletCard } from "./wallet-card";
 import { SendCard } from "./send-card";
 import { ExportCard } from "./export-card";
+import { SignersCard } from "./signers-card";
 import { MigrationBanner } from "./migration-banner";
 
 export function WalletScreen() {
@@ -39,6 +40,7 @@ export function WalletScreen() {
       <MigrationBanner isRecovering={isRecovering} needsRecovery={wallet.needsRecovery()} />
 
       <WalletCard />
+      <SignersCard />
       <SendCard disabled={isRecovering} />
       <ExportCard />
     </div>

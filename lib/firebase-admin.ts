@@ -13,15 +13,19 @@ import { getAuth } from "firebase-admin/auth";
 const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-if (!projectId && !serviceAccount) {
-  throw new Error("NEXT_PUBLIC_FIREBASE_PROJECT_ID (or FIREBASE_SERVICE_ACCOUNT) is required");
+/**
+ * Initialized lazily so `next build` can collect route metadata without the
+ * Firebase env being set. Real requests throw here, not at import time.
+ */
+function adminAuth() {
+  if (!projectId && !serviceAccount) {
+    throw new Error("NEXT_PUBLIC_FIREBASE_PROJECT_ID (or FIREBASE_SERVICE_ACCOUNT) is required");
+  }
+  const app = getApps().length
+    ? getApp()
+    : initializeApp(serviceAccount ? { credential: cert(JSON.parse(serviceAccount)) } : { projectId });
+  return getAuth(app);
 }
-
-const app = getApps().length
-  ? getApp()
-  : initializeApp(serviceAccount ? { credential: cert(JSON.parse(serviceAccount)) } : { projectId });
-
-const adminAuth = getAuth(app);
 
 export interface AuthedUser {
   uid: string;
@@ -39,6 +43,6 @@ export async function verifyAuth(request: Request): Promise<AuthedUser> {
     throw new Error("Missing or malformed Authorization header");
   }
   const token = authorization.slice("Bearer ".length);
-  const decoded = await adminAuth.verifyIdToken(token);
+  const decoded = await adminAuth().verifyIdToken(token);
   return { uid: decoded.uid, email: decoded.email ?? null };
 }
