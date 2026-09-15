@@ -1,8 +1,6 @@
 # Stellar Recovery Methods — Multiple Signers & Post-Creation Additions
 
-> **Status:** Multiple recovery methods are **released** for Stellar smart wallets — creation with `config.recoveryMethods`, the `signer`/`approver` disambiguation fields, and the wallets SDK support (`wallet.recoveryMethods`, `useSigner`, `addSigner`/`removeSigner`) are all live.
->
-> **Not yet enabled:** the published `POST`/`DELETE /wallets/{walletLocator}/recovery-methods` endpoints for adding or removing a recovery method *after* creation. The routes are in the API reference but currently return `400` — *"Recovery methods are not supported for this wallet type"*. Section 4 documents the released request/response shape for when it is enabled.
+> Multiple recovery methods are available for Stellar smart wallets: creation with `config.recoveryMethods`, the `signer`/`approver` disambiguation fields, and the wallets SDK support (`wallet.recoveryMethods`, `useSigner`, `addSigner`/`removeSigner`). Post-creation recovery-method add/remove goes through `POST`/`DELETE /wallets/{walletLocator}/recovery-methods` — published in the API reference and documented in section 4.
 
 The API calls these signers **recovery methods** (earlier docs said *recovery signers* or *admin signers*; the deprecated `adminSigner` field is the same thing). Error messages still quote the older term — reproduced verbatim below.
 
@@ -44,7 +42,7 @@ Locator format: `email:user@example.com`, `phone:+14155550100`, `device:<base64-
 - `wallet.recovery` — the **primary** recovery method config (unchanged single-signer shape).
 - `wallet.recoveryMethods` — the **full list** of recovery method configs.
 - `wallet.useSigner(config)` — matches against **every** recovery method in the list, so any of them can be selected to sign and approve — not only the primary one.
-- `wallet.addSigner(...)` / `wallet.removeSigner(...)` — always authorized by a recovery method. On single-recovery wallets that is automatic; on multi-recovery wallets you must `useSigner()` with the recovery method first, and its locator is sent to the API as `approver`. Selecting an operational (delegated) signer for these calls throws `SignerRequiredError` before any request is made.
+- `wallet.addSigner(...)` / `wallet.removeSigner(...)` — manage **delegated** signers only (they do not add recovery methods). They are authorized by a recovery method: automatic on single-recovery wallets; on multi-recovery wallets you must `useSigner()` with the recovery method first, and its locator is sent to the API as `approver`. Selecting an operational (delegated) signer for these calls throws `SignerRequiredError` before any request is made.
 - `recovery` on `createWallet`/`getOrCreateWallet` accepts a **single config or an array** — arrays are supported on Solana and Stellar only; EVM still takes a single entry.
 
 These versions ship the multi-recovery release: `@crossmint/wallets-sdk@1.15.0`, `@crossmint/client-sdk-react-ui@4.6.1`, `@crossmint/client-sdk-react-native-ui@1.6.3`.
@@ -168,9 +166,9 @@ To read the wallet's methods: `wallet.recovery` (primary) and `wallet.recoveryMe
 
 ---
 
-## 4. Adding an email recovery method to existing (phone-only) wallets — not yet enabled
+## 4. Adding an email recovery method to existing (phone-only) wallets
 
-The API publishes dedicated endpoints for post-creation recovery-method management, following the same server-side-create / client-side-approve pattern as delegated-signer registration (the flow the demo's `SignersCard` implements). **The routes exist in the API reference but are not enabled yet — calls currently return `400`, *"Recovery methods are not supported for this wallet type"*.** The request/response shape below is the released surface; the demo wires it end-to-end anyway so it works the moment it is enabled.
+The API publishes dedicated endpoints for post-creation recovery-method management, following the same server-side-create / client-side-approve pattern as delegated-signer registration (the flow the demo's `SignersCard` implements). Calls currently return `400` *"Recovery methods are not supported for this wallet type"* while the endpoints roll out; the request/response shape below is the released surface, and the demo already calls it.
 
 > Adding a recovery method later does **not** change the wallet address.
 
@@ -194,7 +192,7 @@ curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/recov
 
 **Removal:** `DELETE /api/2025-06-09/wallets/$WALLET/recovery-methods/{signer}?approver=<locator>` — returns a transaction that must be approved the same way.
 
-**SDK:** there is no dedicated `wallet.addRecoveryMethod` function yet — recovery-method management is REST-only; `wallet.addSigner`/`wallet.removeSigner` manage **delegated** signers (they already pick up the selected recovery method as `approver` on multi-recovery wallets).
+**SDK:** recovery-method management is REST-only — `wallet.addSigner`/`wallet.removeSigner` manage **delegated** signers (they pick up the `useSigner`-selected recovery method as `approver` on multi-recovery wallets).
 
 Validations mirror creation: allowed types only (`email`, `phone`, `external-wallet`, `server` — never `device`), duplicate rejection, and the 8-combined-signer cap counting existing recovery methods and delegated signers.
 
@@ -222,4 +220,4 @@ Wallets migrating to device signers (the flow this demo implements) are unaffect
 | `device` as a recovery method | `400` (not an allowed type) |
 | Multi-recovery wallet, no `signer`/`approver` on the request | `400` — *"This wallet has multiple recovery signers. Specify which recovery signer should authorize this request."* |
 | `approver` not one of the wallet's recovery methods | `400` — *"'approver' must be one of the wallet's recovery signers. It should be \<valid locators\>"* |
-| `POST`/`DELETE /recovery-methods` called today | `400` — *"Recovery methods are not supported for this wallet type"* (endpoints published, not yet enabled) |
+| `POST`/`DELETE /recovery-methods` | `400` — *"Recovery methods are not supported for this wallet type"* |

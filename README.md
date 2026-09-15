@@ -2,7 +2,7 @@
 
 A reference web app showcasing Crossmint wallet features on **Stellar**, end to end on staging:
 
-1. **Multiple recovery methods** - wallets can be created with `recoveryMethods` (e.g. email + phone, offered on the signup form), and signers can be added/removed post-creation from the Signers card. See [docs/recovery-signers.md](docs/recovery-signers.md).
+1. **Multiple recovery methods** - wallets are created with `config.recoveryMethods` (e.g. email + phone, offered on the signup form), and delegated signers can be added/removed post-creation from the Signers card (`POST|DELETE /api/wallets/signers` + client-side `useSigner`/`approve`, with an `approver` selector since multi-recovery wallets must name which recovery method authorizes each change). Post-creation recovery-method management (`/recovery-methods`) is also wired. See [docs/recovery-signers.md](docs/recovery-signers.md).
 2. **Legacy wallet migration** - upgrade a V1 smart wallet to V2 and register a device signer. The `upgrade-wallet` and `migrate-wallet` transactions are created server-side; the user approves each client-side via `wallet.approve()` (OTP), then `recover()` registers the device signer.
 3. **Server-side wallet and transfer creation** (BFF) - the server holds the secret key; the browser never creates wallets or transactions directly.
 4. **OTP signing** - the SDK's built-in email-OTP flow for non-custodial signers.
@@ -20,7 +20,7 @@ Browser (ck_ client key + Firebase JWT)        Next.js server (sk_ server key)
 -----------------------------------------      --------------------------------
 Firebase login -> setJwt()                      POST /api/auth/signup
 createDeviceSigner() -> device {x,y}    ---->     get-or-create Stellar wallet
-getWallet({ chain: "stellar" })                   (email admin + device delegated)
+getWallet({ chain: "stellar" })                   (recoveryMethods + device delegated)
 migration: approve tx + recover()  ---->        POST /api/wallets/migrate
                                         <----     creates upgrade-wallet /
                                                   migrate-wallet transactions
@@ -39,10 +39,10 @@ Auth is **Firebase** (configured as a 3P auth provider on the Crossmint project,
 
 | State | What happens |
 |---|---|
-| **New wallet** | Created server-side with the email admin signer **and the device signer pre-registered** as a delegated signer. Frictionless from birth, no migration. |
+| **New wallet** | Created server-side with `recoveryMethods` (email + optional second method) **and the device signer pre-registered** as a delegated signer. Frictionless from birth, no migration. |
 | **Legacy wallet** (no device key) | SDK reports `wallet.needsRecovery() === true`. On load, the client runs `migrateLegacyWallet`: the server creates the `upgrade-wallet` then `migrate-wallet` transactions (V1 -> V2), the client approves each with `wallet.approve()` and polls to success, then `recover()` registers the device signer. |
 
-An already-V2 wallet returns "already on the latest version" on the `upgrade-wallet` step, which is treated as a no-op (so new wallets fall straight through to `recover()`). The two lifecycle approvals route to the wallet's admin signer, so a legacy user sees two OTP prompts during migration - by design for wallet lifecycle operations.
+An already-V2 wallet returns "already on the latest version" on the `upgrade-wallet` step, which is treated as a no-op (so new wallets fall straight through to `recover()`). The two lifecycle approvals route to the wallet's recovery method (named via `signer` when there are several), so a legacy user sees two OTP prompts during migration - by design for wallet lifecycle operations.
 
 > See the [Crossmint wallet docs](https://docs.crossmint.com/wallets) for the SDK methods used here.
 
@@ -84,6 +84,10 @@ Enable the Email/Password sign-in provider in your Firebase project's Authentica
 | `app/api/auth/signup/route.ts` | Get-or-create the user's Stellar wallet |
 | `app/api/wallets/send/route.ts` | Create a USDC transfer transaction |
 | `app/api/wallets/migrate/route.ts` | Create `upgrade-wallet` and `migrate-wallet` transactions |
+| `app/api/wallets/signers/route.ts` | Add/remove delegated signers (`approver`-aware) |
+| `app/api/wallets/recovery-methods/route.ts` | Add/remove recovery methods (`/recovery-methods` upstream) |
+| `hooks/use-signers.ts` | List signers; approve signer changes via `useSigner` + `approve` |
+| `components/signers-card.tsx` | Signer management UI (recovery methods, delegated signers, approver) |
 | `lib/firebase.ts` | Firebase init (web) |
 | `lib/api.ts` | Client -> server calls |
 | `lib/wallet-migration.ts` | `migrateLegacyWallet`: approve server-created lifecycle txs + `recover()` |
