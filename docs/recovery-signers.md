@@ -88,7 +88,8 @@ Response — `config.recoveryMethods` returns the full resolved list; `config.ad
       { "type": "phone", "phone": "+14155550100",    "locator": "phone:+14155550100",     "address": "GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOKY3B2WSQHG4W37" },
       { "type": "email", "email": "user@example.com", "locator": "email:user@example.com", "address": "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ" }
     ],
-    "delegatedSigners": []
+    "delegatedSigners": [],
+    "plugins": []
   }
 }
 ```
@@ -120,7 +121,7 @@ Validation notes:
 Create the transfer with the token transfer API and name the signer that will approve it. Either recovery method (phone or email) — or a registered device signer — can be used:
 
 ```bash
-curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/tokens/usdc/transfers" \
+curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/tokens/stellar:usdc/transfers" \
   -H "X-API-KEY: $CROSSMINT_SERVER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -130,7 +131,7 @@ curl -X POST "https://staging.crossmint.com/api/2025-06-09/wallets/$WALLET/token
   }'
 ```
 
-`signer` is optional and defaults to the primary (first) recovery method — on multi-recovery wallets, set it whenever you want a non-primary method to authorize. On raw transaction creation the field is `params.signer`, with the same default.
+`signer` is optional on single-recovery wallets (defaults to the sole recovery method) but **required on multi-recovery wallets** — omitting it returns the `400` quoted in section 1. On raw transaction creation the field is `params.signer`, with the same rule.
 
 The response's `approvals.pending[]` names that signer's locator. The mobile app then approves it.
 
