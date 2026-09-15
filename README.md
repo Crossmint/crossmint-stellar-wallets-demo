@@ -2,11 +2,12 @@
 
 A reference web app showcasing Crossmint wallet features on **Stellar**, end to end on staging:
 
-1. **Legacy wallet migration** - upgrade a V1 smart wallet to V2 and register a device signer. The `upgrade-wallet` and `migrate-wallet` transactions are created server-side; the user approves each client-side via `wallet.approve()` (OTP), then `recover()` registers the device signer.
-2. **Server-side wallet and transfer creation** (BFF) - the server holds the secret key; the browser never creates wallets or transactions directly.
-3. **OTP signing** - the SDK's built-in email-OTP flow for non-custodial signers.
-4. **Export private key** - with an `onExport` compliance hook.
-5. **Firebase auth** - bring-your-own-auth bridged into Crossmint.
+1. **Multiple recovery methods** - wallets can be created with `recoveryMethods` (e.g. email + phone, offered on the signup form), and signers can be added/removed post-creation from the Signers card. See [docs/recovery-signers.md](docs/recovery-signers.md).
+2. **Legacy wallet migration** - upgrade a V1 smart wallet to V2 and register a device signer. The `upgrade-wallet` and `migrate-wallet` transactions are created server-side; the user approves each client-side via `wallet.approve()` (OTP), then `recover()` registers the device signer.
+3. **Server-side wallet and transfer creation** (BFF) - the server holds the secret key; the browser never creates wallets or transactions directly.
+4. **OTP signing** - the SDK's built-in email-OTP flow for non-custodial signers.
+5. **Export private key** - with an `onExport` compliance hook.
+6. **Firebase auth** - bring-your-own-auth bridged into Crossmint.
 
 It runs against a project that has both **legacy Stellar wallets without a device key** and **new wallets**, and handles both with the same code path.
 

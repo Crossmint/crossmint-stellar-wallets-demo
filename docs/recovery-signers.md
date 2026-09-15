@@ -6,6 +6,8 @@
 
 The API calls these signers **recovery methods** (earlier docs said *recovery signers* or *admin signers*; the deprecated `adminSigner` field is the same thing). Error messages still quote the older term — reproduced verbatim below.
 
+**Where the demo implements this:** creation with `recoveryMethods` in `lib/crossmint-server.ts` (`getOrCreateWallet`, fed by the optional "2nd recovery method" field on the signup form); post-creation signer add/remove in `app/api/wallets/signers` + `app/api/wallets/recovery-methods` and the `SignersCard` UI (approver select + `useSigner` + OTP approval via the SDK dialog).
+
 ## Who this is for
 
 Teams that:
@@ -168,7 +170,7 @@ To read the wallet's methods: `wallet.recovery` (primary) and `wallet.recoveryMe
 
 ## 4. Adding an email recovery method to existing (phone-only) wallets — not yet enabled
 
-The API publishes dedicated endpoints for post-creation recovery-method management, following the same server-side-create / client-side-approve pattern as delegated-signer registration (the flow this demo implements). **The routes exist in the API reference but are not enabled yet — calls currently return `400`, *"Recovery methods are not supported for this wallet type"*.** The request/response shape below is the released surface.
+The API publishes dedicated endpoints for post-creation recovery-method management, following the same server-side-create / client-side-approve pattern as delegated-signer registration (the flow the demo's `SignersCard` implements). **The routes exist in the API reference but are not enabled yet — calls currently return `400`, *"Recovery methods are not supported for this wallet type"*.** The request/response shape below is the released surface; the demo wires it end-to-end anyway so it works the moment it is enabled.
 
 > Adding a recovery method later does **not** change the wallet address.
 

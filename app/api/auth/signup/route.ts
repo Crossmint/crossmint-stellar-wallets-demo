@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrCreateWallet } from "@/lib/crossmint-server";
 import { verifyAuth } from "@/lib/firebase-admin";
-import type { DevicePublicKey } from "@/lib/types";
+import type { DevicePublicKey, RecoverySigner } from "@/lib/types";
 
 /**
  * POST /api/auth/signup
@@ -9,6 +9,10 @@ import type { DevicePublicKey } from "@/lib/types";
  * is taken from the verified Firebase ID token, never from the request body,
  * so a caller can only ever act on their own wallet. The device public key,
  * when present, is registered as a delegated signer at creation time.
+ * `recoverySigners` optionally adds recovery methods beyond the primary email
+ * (a phone number or second email) so a new wallet is born multi-recovery.
+ * Ignored when the wallet already exists - recovery methods can't be changed
+ * this way (that path is POST /api/wallets/recovery-methods).
  */
 export async function POST(request: Request) {
   const user = await verifyAuth(request).catch(() => null);
@@ -20,8 +24,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { devicePublicKey } = (await request.json()) as { devicePublicKey?: DevicePublicKey };
-    const wallet = await getOrCreateWallet(user.uid, user.email, devicePublicKey);
+    const { devicePublicKey, recoverySigners } = (await request.json()) as {
+      devicePublicKey?: DevicePublicKey;
+      recoverySigners?: RecoverySigner[];
+    };
+    const wallet = await getOrCreateWallet(
+      user.uid,
+      user.email,
+      devicePublicKey,
+      recoverySigners ?? []
+    );
     return NextResponse.json({ userId: user.uid, email: user.email, walletAddress: wallet.address });
   } catch (error) {
     return NextResponse.json(

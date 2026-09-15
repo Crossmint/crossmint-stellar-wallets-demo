@@ -2,7 +2,18 @@
 
 import { useState } from "react";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
+import { PENDING_RECOVERY_SIGNER_KEY } from "@/providers/auth-provider";
+import type { RecoverySigner } from "@/lib/types";
+
+/** Parses a phone (+digits) or email value into a recovery-method config, or null when empty/invalid. */
+export function parseRecoverySigner(value: string): RecoverySigner | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (v.includes("@")) return { type: "email", email: v };
+  if (/^\+[0-9]{7,15}$/.test(v)) return { type: "phone", phone: v };
+  return null;
+}
 
 /**
  * Firebase email/password login. Sign in with an existing user (whose Stellar
@@ -14,6 +25,7 @@ export function Login() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [secondRecovery, setSecondRecovery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,9 +35,18 @@ export function Login() {
     setSubmitting(true);
     try {
       if (mode === "signin") {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        if (secondRecovery.trim()) {
+          const extra = parseRecoverySigner(secondRecovery);
+          if (!extra) {
+            setError("Second recovery method must be an email or a phone number like +14155550100");
+            setSubmitting(false);
+            return;
+          }
+          window.localStorage.setItem(PENDING_RECOVERY_SIGNER_KEY, JSON.stringify([extra]));
+        }
+        await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
@@ -62,6 +83,15 @@ export function Login() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
+          {mode === "signup" ? (
+            <input
+              type="text"
+              placeholder="2nd recovery method - phone (+1...) or email (optional)"
+              value={secondRecovery}
+              onChange={(e) => setSecondRecovery(e.target.value)}
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          ) : null}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <button
             type="submit"

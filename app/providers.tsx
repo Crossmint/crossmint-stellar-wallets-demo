@@ -6,11 +6,6 @@ import AuthProvider from "@/providers/auth-provider";
 
 const queryClient = new QueryClient();
 
-const apiKey = process.env.NEXT_PUBLIC_CROSSMINT_API_KEY || "";
-if (!apiKey) {
-  throw new Error("NEXT_PUBLIC_CROSSMINT_API_KEY is not set");
-}
-
 /**
  * Provider stack: QueryClient -> CrossmintProvider -> CrossmintWalletProvider -> AuthProvider.
  *
@@ -18,8 +13,19 @@ if (!apiKey) {
  * AuthProvider bridges the Firebase JWT into Crossmint with setJwt().
  * CrossmintWalletProvider auto-configures the device-signer key storage and
  * shows the built-in email-OTP dialog during signing.
+ *
+ * A missing client key renders an on-page error instead of throwing: `next
+ * build` prerenders this tree without NEXT_PUBLIC_* env set.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
+  const apiKey = process.env.NEXT_PUBLIC_CROSSMINT_API_KEY || "";
+  if (!apiKey) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center text-sm">
+        NEXT_PUBLIC_CROSSMINT_API_KEY is not set - copy .env.template to .env.local and fill it in.
+      </div>
+    );
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <CrossmintProvider apiKey={apiKey}>
