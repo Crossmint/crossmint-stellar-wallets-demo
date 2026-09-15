@@ -52,13 +52,16 @@ export const useSigners = () => {
     } else {
       throw new Error(`Approving with a ${approver.type} method isn't supported in this demo`);
     }
-    await wallet.approve({ transactionId });
     try {
-      if (!wallet.needsRecovery() && wallet.signer?.type !== "device") {
-        await wallet.useSigner({ type: "device" });
+      await wallet.approve({ transactionId });
+    } finally {
+      try {
+        if (!wallet.needsRecovery() && wallet.signer?.type !== "device") {
+          await wallet.useSigner({ type: "device" });
+        }
+      } catch {
+        // No device signer registered yet; the email/phone method stays active.
       }
-    } catch {
-      // No device signer registered yet; the email/phone method stays active.
     }
   };
 
@@ -72,7 +75,9 @@ export const useSigners = () => {
         await approveWith(v.approver, res.transaction.id);
       }
     },
-    onSuccess: refresh,
+    // A dismissed approval still leaves the pending signer registered, so
+    // refetch on every outcome - not just success.
+    onSettled: refresh,
   });
 
   const remove = useMutation({
@@ -83,7 +88,7 @@ export const useSigners = () => {
       const tx = await removeSigner(jwt, v.signerLocator, locatorOf(v.approver));
       await approveWith(v.approver, tx.id);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
 
   const addRecovery = useMutation({
@@ -94,7 +99,7 @@ export const useSigners = () => {
       const res = await addRecoveryMethod(jwt, v.recovery, locatorOf(v.approver));
       await approveWith(v.approver, res.tx.id);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
 
   const removeRecovery = useMutation({
@@ -105,7 +110,7 @@ export const useSigners = () => {
       const tx = await removeRecoveryMethod(jwt, v.signerLocator, locatorOf(v.approver));
       await approveWith(v.approver, tx.id);
     },
-    onSuccess: refresh,
+    onSettled: refresh,
   });
 
   return {

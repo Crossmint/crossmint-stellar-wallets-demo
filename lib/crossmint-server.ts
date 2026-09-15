@@ -43,6 +43,21 @@ function stellarWalletLocator(userId: string): string {
   return `userId:${userId}:stellar:smart`;
 }
 
+/** Unwraps the API's {"error":true,"message":"..."} body so callers see the message, not escaped JSON. */
+function parseErrorBody(text: string): string {
+  try {
+    const parsed = JSON.parse(text) as { message?: unknown };
+    if (typeof parsed.message === "string" && parsed.message) {
+      return parsed.message;
+    }
+  } catch {}
+  return text;
+}
+
+async function errorBody(res: Response): Promise<string> {
+  return parseErrorBody(await res.text());
+}
+
 interface CreateWalletConfig {
   recoveryMethods: RecoverySigner[];
   delegatedSigners?: Array<{ signer: { type: "device"; publicKey: DevicePublicKey } }>;
@@ -74,7 +89,7 @@ export async function getOrCreateWallet(
     return getRes.json() as Promise<CrossmintWallet>;
   }
   if (getRes.status !== 404) {
-    throw new Error(`Failed to check existing wallet: ${getRes.status} ${await getRes.text()}`);
+    throw new Error(`Failed to check existing wallet: ${getRes.status} ${await errorBody(getRes)}`);
   }
 
   const config: CreateWalletConfig = {
@@ -96,7 +111,7 @@ export async function getOrCreateWallet(
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to create wallet: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to create wallet: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<CrossmintWallet>;
 }
@@ -106,7 +121,7 @@ export async function getWallet(userId: string): Promise<CrossmintWallet> {
     headers: { "X-API-KEY": apiKey() },
   });
   if (!res.ok) {
-    throw new Error(`Failed to get wallet: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to get wallet: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<CrossmintWallet>;
 }
@@ -144,7 +159,7 @@ export async function createLifecycleTransaction(
     if (/already on the latest version/i.test(text) || /no upgrade in progress/i.test(text)) {
       return { upToDate: true };
     }
-    throw new Error(`Failed to create ${type} transaction: ${res.status} ${text}`);
+    throw new Error(`Failed to create ${type} transaction: ${res.status} ${parseErrorBody(text)}`);
   }
   return res.json() as Promise<WalletTransaction>;
 }
@@ -180,7 +195,7 @@ export async function createSendTransaction(
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to send transaction: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to send transaction: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<TransferResponse>;
 }
@@ -204,7 +219,7 @@ export async function addDelegatedSigner(
     }
   );
   if (!res.ok) {
-    throw new Error(`Failed to add signer: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to add signer: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<DelegatedSignerResponse>;
 }
@@ -227,7 +242,7 @@ export async function removeSigner(
   }
   const res = await fetch(url, { method: "DELETE", headers: { "X-API-KEY": apiKey() } });
   if (!res.ok) {
-    throw new Error(`Failed to remove signer: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to remove signer: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<WalletTransaction>;
 }
@@ -254,7 +269,7 @@ export async function addRecoveryMethod(
     }
   );
   if (!res.ok) {
-    throw new Error(`Failed to add recovery method: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to add recovery method: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<AddRecoveryMethodResponse>;
 }
@@ -271,7 +286,7 @@ export async function removeRecoveryMethod(
   url.searchParams.set("approver", approver);
   const res = await fetch(url, { method: "DELETE", headers: { "X-API-KEY": apiKey() } });
   if (!res.ok) {
-    throw new Error(`Failed to remove recovery method: ${res.status} ${await res.text()}`);
+    throw new Error(`Failed to remove recovery method: ${res.status} ${await errorBody(res)}`);
   }
   return res.json() as Promise<WalletTransaction>;
 }
